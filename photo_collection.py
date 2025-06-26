@@ -184,7 +184,6 @@
 
 
 
-
 import streamlit as st
 from streamlit.components.v1 import html
 from datetime import datetime
@@ -203,88 +202,84 @@ section = st.selectbox("📂 Select Section", ["Mock", "Examday Morning Selfie",
 # --- CENTER CODE ENTRY ---
 center_code = st.text_input("🏫 Enter Center Code", max_chars=10)
 
-# --- CAPTURE LOCATION using HTML/JS (more reliable than streamlit_js_eval) ---
-st.subheader("📍 Capture Location")
-
-location_js = """
+# --- LOCATION CAPTURE (HTML + JS) ---
+location_html = """
 <script>
 function getLocation() {
-  const status = document.getElementById("location-status");
+  const status = document.getElementById("status");
   if (!navigator.geolocation) {
-    status.innerText = '⚠️ Geolocation not supported by this browser.';
+    status.innerText = '⚠️ Geolocation not supported.';
     return;
   }
 
   status.innerText = '📡 Getting location...';
   navigator.geolocation.getCurrentPosition(
     function(position) {
-      document.getElementById("latitude").value = position.coords.latitude.toFixed(6);
-      document.getElementById("longitude").value = position.coords.longitude.toFixed(6);
+      document.getElementById("lat").value = position.coords.latitude.toFixed(6);
+      document.getElementById("lon").value = position.coords.longitude.toFixed(6);
       status.innerText = `✅ Latitude: ${position.coords.latitude.toFixed(6)}, Longitude: ${position.coords.longitude.toFixed(6)}`;
     },
-    function(error) {
+    async function(error) {
+      let msg = '';
       switch(error.code) {
         case error.PERMISSION_DENIED:
-          status.innerText = "🛑 User denied the request.";
+          msg = "🛑 Permission denied.";
           break;
         case error.POSITION_UNAVAILABLE:
-          status.innerText = "📡 Location unavailable.";
-          fetchIPGeo();
+          msg = "📡 Position unavailable.";
           break;
         case error.TIMEOUT:
-          status.innerText = "⏳ Timeout getting location.";
-          fetchIPGeo();
+          msg = "⏳ Timeout occurred.";
           break;
         default:
-          status.innerText = "❓ Unknown error.";
+          msg = "❓ Unknown error.";
+      }
+      status.innerText = msg;
+
+      // Fallback to IP-based geolocation
+      try {
+        const res = await fetch('https://ipapi.co/json/ ');
+        const data = await res.json();
+        if (data && data.latitude && data.longitude) {
+          document.getElementById("lat").value = data.latitude.toFixed(6);
+          document.getElementById("lon").value = data.longitude.toFixed(6);
+          status.innerText += `\n🌐 Fallback IP Geo: ${data.city}, ${data.region}`;
+        } else {
+          status.innerText += "\n❌ IP geolocation also failed.";
+        }
+      } catch (e) {
+        console.error(e);
       }
     }
   );
 }
-
-async function fetchIPGeo() {
-  try {
-    const res = await fetch('https://ipapi.co/json/ ');
-    const data = await res.json();
-    if (data && data.latitude && data.longitude) {
-      document.getElementById("latitude").value = data.latitude.toFixed(6);
-      document.getElementById("longitude").value = data.longitude.toFixed(6);
-      document.getElementById("location-status").innerText += `\n🌐 Fallback IP Geo: ${data.city}, ${data.region} | Lat: ${data.latitude.toFixed(6)}, Lon: ${data.longitude.toFixed(6)}`;
-    } else {
-      document.getElementById("location-status").innerText += "\n❌ IP geolocation also failed.";
-    }
-  } catch (e) {
-    console.error(e);
-  }
-}
 </script>
 
-<input type="text" id="latitude" name="latitude" readonly hidden>
-<input type="text" id="longitude" name="longitude" readonly hidden>
+<input type="text" id="lat" name="lat" hidden readonly>
+<input type="text" id="lon" name="lon" hidden readonly>
 
 <button onclick="getLocation()" style="padding: 10px; font-size: 16px;">📍 Get Current Location</button>
-<p id="location-status" style="color: green;"></p>
+<p id="status" style="color: green;"></p>
 """
 
-html(location_js, height=200)
+html(location_html, height=200)
 
 latitude = st.text_input("Latitude", key="lat_input", disabled=True)
 longitude = st.text_input("Longitude", key="lon_input", disabled=True)
 
-# --- CAPTURE PHOTO ---
+# --- CAMERA INPUT (MOBILE FRIENDLY) ---
 st.subheader("📸 Take a Clear Selfie")
 
-# Use file_uploader with camera capture support for mobile
-img_file = st.file_uploader("📷 Upload your selfie", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("📷 Upload your selfie", type=["jpg", "jpeg", "png"], label_visibility="visible")
 
-if img_file:
-    st.image(img_file, caption="🖼️ Preview of your selfie", use_column_width=True)
+if uploaded_file:
+    st.image(uploaded_file, caption="🖼️ Preview of your selfie", use_column_width=True)
 
 # --- SUBMIT BUTTON ---
 if st.button("✅ Submit"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    lat = st.experimental_get_query_params().get("latitude", [None])[0]
-    lon = st.experimental_get_query_params().get("longitude", [None])[0]
+    lat_val = st.session_state.get("lat", "")
+    lon_val = st.session_state.get("lon", "")
 
     st.success("✔️ Submission Successful!")
 
@@ -292,12 +287,12 @@ if st.button("✅ Submit"):
     st.markdown(f"**Section:** {section}")
     st.markdown(f"**Center Code:** `{center_code}`")
     st.markdown(f"**Timestamp:** {timestamp}")
-    st.markdown(f"**Latitude:** {latitude if latitude else 'Not Available'}")
-    st.markdown(f"**Longitude:** {longitude if longitude else 'Not Available'}")
+    st.markdown(f"**Latitude:** {latitude}")
+    st.markdown(f"**Longitude:** {longitude}")
 
-    if img_file:
-        st.image(img_file, caption="📷 Submitted Selfie", use_column_width=True)
+    if uploaded_file:
+        st.image(uploaded_file, caption="📷 Submitted Selfie", use_column_width=True)
 
 # --- Footer Note ---
 st.markdown("---")
-st.markdown("🔒 _Photo and location data are only used for verification purposes. Your privacy is respected._")
+st.markdown("🔒 _Photo and location data are only used for verification purposes._")

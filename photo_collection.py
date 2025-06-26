@@ -79,7 +79,6 @@
 import streamlit as st
 from streamlit_js_eval import streamlit_js_eval
 from datetime import datetime
-import base64
 from PIL import Image
 from io import BytesIO
 
@@ -101,16 +100,43 @@ center_code = st.text_input("🏫 Enter Center Code", max_chars=10)
 
 # --- CAPTURE LOCATION ---
 st.subheader("📍 Location Access")
-location = streamlit_js_eval(js_expressions="navigator.geolocation.getCurrentPosition", key="get_location")
+
+js_code = """
+async () => {
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      (error) => {
+        resolve({ error: error.message, code: error.code });
+      }
+    );
+  });
+}
+"""
+
+location = streamlit_js_eval(js_expressions=js_code, key="geo_location")
 
 latitude = longitude = None
-if location and "coords" in location:
-    latitude = location["coords"]["latitude"]
-    longitude = location["coords"]["longitude"]
-elif location and "code" in location:
-    st.warning("⚠️ Location permission denied or unavailable. Please allow access in browser settings.")
+if location:
+    if "error" not in location:
+        latitude = location["latitude"]
+        longitude = location["longitude"]
+        st.success(f"✅ Location captured: Latitude {latitude}, Longitude {longitude}")
+    else:
+        st.warning(f"⚠️ Location permission denied or unavailable. (Error: {location['error']})")
 else:
     st.info("📡 Awaiting location access...")
+
+# --- MANUAL LOCATION INPUT (FALLBACK) ---
+use_manual = st.checkbox("🔧 Use manual location entry (fallback)")
+if use_manual:
+    latitude = st.number_input("🌐 Enter Latitude", format="%.6f")
+    longitude = st.number_input("🌐 Enter Longitude", format="%.6f")
 
 # --- PHOTO CAPTURE ---
 st.subheader("📸 Capture Photo")
@@ -119,6 +145,7 @@ img_file = st.camera_input("Take a clear selfie")
 # --- Preview and Confirm ---
 if img_file:
     st.image(img_file, caption="📷 Preview of your photo", use_column_width=True)
+    
     if st.button("🔁 Retake Photo"):
         st.experimental_rerun()
 

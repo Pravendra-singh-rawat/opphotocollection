@@ -101,36 +101,39 @@ center_code = st.text_input("🏫 Enter Center Code", max_chars=10)
 # --- CAPTURE LOCATION ---
 st.subheader("📍 Location Access")
 
-js_code = """
-async () => {
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-      },
-      (error) => {
-        resolve({ error: error.message, code: error.code });
-      }
-    );
-  });
-}
-"""
+latitude = None
+longitude = None
 
-location = streamlit_js_eval(js_expressions=js_code, key="geo_location")
+if st.button("📍 Get Current Location"):
+    js_code = """
+    async () => {
+      return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+          },
+          (error) => {
+            resolve({ error: error.message, code: error.code });
+          }
+        );
+      });
+    }
+    """
 
-latitude = longitude = None
-if location:
-    if "error" not in location:
-        latitude = location["latitude"]
-        longitude = location["longitude"]
-        st.success(f"✅ Location captured: Latitude {latitude}, Longitude {longitude}")
+    location = streamlit_js_eval(js_expressions=js_code, key="geo_location_manual")
+
+    if location:
+        if "error" not in location:
+            latitude = location["latitude"]
+            longitude = location["longitude"]
+            st.success(f"✅ Location captured: Latitude {latitude}, Longitude {longitude}")
+        else:
+            st.warning(f"⚠️ Location permission denied or unavailable. (Error: {location['error']})")
     else:
-        st.warning(f"⚠️ Location permission denied or unavailable. (Error: {location['error']})")
-else:
-    st.info("📡 Awaiting location access...")
+        st.info("📡 Could not retrieve location.")
 
 # --- MANUAL LOCATION INPUT (FALLBACK) ---
 use_manual = st.checkbox("🔧 Use manual location entry (fallback)")

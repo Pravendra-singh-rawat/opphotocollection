@@ -76,21 +76,126 @@
 
 
 
+# import streamlit as st
+# from streamlit_js_eval import streamlit_js_eval
+# from datetime import datetime
+# from PIL import Image
+# from io import BytesIO
+
+# st.set_page_config(page_title="📸 Selfie Submission", layout="centered")
+
+# st.title("📍📸 Selfie Submission App")
+# st.markdown(
+#     """
+#     This app is for **official use only**. Please take your selfie and allow location access 📌.  
+#     _Your data is used solely for verification purposes._
+#     """
+# )
+
+# # --- SECTION SELECTION ---
+# section = st.selectbox("📂 Select Section", ["Mock", "Examday Morning Selfie", "CSR", "Exit Selfie"])
+
+# # --- CENTER CODE ENTRY ---
+# center_code = st.text_input("🏫 Enter Center Code", max_chars=10)
+
+# # --- CAPTURE LOCATION ---
+# st.subheader("📍 Location Access")
+
+# latitude = None
+# longitude = None
+
+# if st.button("📍 Get Current Location"):
+#     js_code = """
+#     async () => {
+#       return new Promise((resolve) => {
+#         navigator.geolocation.getCurrentPosition(
+#           (position) => {
+#             resolve({
+#               latitude: position.coords.latitude,
+#               longitude: position.coords.longitude,
+#             });
+#           },
+#           (error) => {
+#             resolve({ error: error.message, code: error.code });
+#           }
+#         );
+#       });
+#     }
+#     """
+
+#     location = streamlit_js_eval(js_expressions=js_code, key="geo_location_manual")
+
+#     if location:
+#         if "error" not in location:
+#             latitude = location["latitude"]
+#             longitude = location["longitude"]
+#             st.success(f"✅ Location captured: Latitude {latitude}, Longitude {longitude}")
+#         else:
+#             st.warning(f"⚠️ Location permission denied or unavailable. (Error: {location['error']})")
+#     else:
+#         st.info("📡 Could not retrieve location.")
+
+# # --- MANUAL LOCATION INPUT (FALLBACK) ---
+# use_manual = st.checkbox("🔧 Use manual location entry (fallback)")
+# if use_manual:
+#     latitude = st.number_input("🌐 Enter Latitude", format="%.6f")
+#     longitude = st.number_input("🌐 Enter Longitude", format="%.6f")
+
+# # --- PHOTO CAPTURE ---
+# st.subheader("📸 Capture Photo")
+# img_file = st.camera_input("Take a clear selfie")
+
+# # --- Preview and Confirm ---
+# if img_file:
+#     st.image(img_file, caption="📷 Preview of your photo", use_column_width=True)
+    
+#     if st.button("🔁 Retake Photo"):
+#         st.experimental_rerun()
+
+#     if st.button("✅ Submit"):
+#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#         st.success("✔️ Submission Successful!")
+
+#         # Display submitted data
+#         st.markdown("### 📝 Submitted Details")
+#         st.markdown(f"**Section:** {section}")
+#         st.markdown(f"**Center Code:** `{center_code}`")
+#         st.markdown(f"**Timestamp:** {timestamp}")
+#         st.markdown(f"**Latitude:** {latitude if latitude else 'Not Available'}")
+#         st.markdown(f"**Longitude:** {longitude if longitude else 'Not Available'}")
+
+#         st.image(img_file, caption="🖼️ Submitted Photo", use_column_width=True)
+
+# # --- Footer Note ---
+# st.markdown("---")
+# st.markdown("🔒 _Photo and location data are only used for verification purposes. Your privacy is respected._")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import streamlit as st
-from streamlit_js_eval import streamlit_js_eval
+from streamlit.components.v1 import html
 from datetime import datetime
-from PIL import Image
-from io import BytesIO
 
 st.set_page_config(page_title="📸 Selfie Submission", layout="centered")
 
 st.title("📍📸 Selfie Submission App")
-st.markdown(
-    """
-    This app is for **official use only**. Please take your selfie and allow location access 📌.  
-    _Your data is used solely for verification purposes._
-    """
-)
+st.markdown("""
+This app is for **official use only**. Please take your selfie and allow location access 📌.  
+_Your data is used solely for verification purposes._
+""")
 
 # --- SECTION SELECTION ---
 section = st.selectbox("📂 Select Section", ["Mock", "Examday Morning Selfie", "CSR", "Exit Selfie"])
@@ -98,73 +203,100 @@ section = st.selectbox("📂 Select Section", ["Mock", "Examday Morning Selfie",
 # --- CENTER CODE ENTRY ---
 center_code = st.text_input("🏫 Enter Center Code", max_chars=10)
 
-# --- CAPTURE LOCATION ---
-st.subheader("📍 Location Access")
+# --- CAPTURE LOCATION using HTML/JS (more reliable than streamlit_js_eval) ---
+st.subheader("📍 Capture Location")
 
-latitude = None
-longitude = None
+location_js = """
+<script>
+function getLocation() {
+  const status = document.getElementById("location-status");
+  if (!navigator.geolocation) {
+    status.innerText = '⚠️ Geolocation not supported by this browser.';
+    return;
+  }
 
-if st.button("📍 Get Current Location"):
-    js_code = """
-    async () => {
-      return new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            resolve({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            });
-          },
-          (error) => {
-            resolve({ error: error.message, code: error.code });
-          }
-        );
-      });
+  status.innerText = '📡 Getting location...';
+  navigator.geolocation.getCurrentPosition(
+    function(position) {
+      document.getElementById("latitude").value = position.coords.latitude.toFixed(6);
+      document.getElementById("longitude").value = position.coords.longitude.toFixed(6);
+      status.innerText = `✅ Latitude: ${position.coords.latitude.toFixed(6)}, Longitude: ${position.coords.longitude.toFixed(6)}`;
+    },
+    function(error) {
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          status.innerText = "🛑 User denied the request.";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          status.innerText = "📡 Location unavailable.";
+          fetchIPGeo();
+          break;
+        case error.TIMEOUT:
+          status.innerText = "⏳ Timeout getting location.";
+          fetchIPGeo();
+          break;
+        default:
+          status.innerText = "❓ Unknown error.";
+      }
     }
-    """
+  );
+}
 
-    location = streamlit_js_eval(js_expressions=js_code, key="geo_location_manual")
+async function fetchIPGeo() {
+  try {
+    const res = await fetch('https://ipapi.co/json/ ');
+    const data = await res.json();
+    if (data && data.latitude && data.longitude) {
+      document.getElementById("latitude").value = data.latitude.toFixed(6);
+      document.getElementById("longitude").value = data.longitude.toFixed(6);
+      document.getElementById("location-status").innerText += `\n🌐 Fallback IP Geo: ${data.city}, ${data.region} | Lat: ${data.latitude.toFixed(6)}, Lon: ${data.longitude.toFixed(6)}`;
+    } else {
+      document.getElementById("location-status").innerText += "\n❌ IP geolocation also failed.";
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+</script>
 
-    if location:
-        if "error" not in location:
-            latitude = location["latitude"]
-            longitude = location["longitude"]
-            st.success(f"✅ Location captured: Latitude {latitude}, Longitude {longitude}")
-        else:
-            st.warning(f"⚠️ Location permission denied or unavailable. (Error: {location['error']})")
-    else:
-        st.info("📡 Could not retrieve location.")
+<input type="text" id="latitude" name="latitude" readonly hidden>
+<input type="text" id="longitude" name="longitude" readonly hidden>
 
-# --- MANUAL LOCATION INPUT (FALLBACK) ---
-use_manual = st.checkbox("🔧 Use manual location entry (fallback)")
-if use_manual:
-    latitude = st.number_input("🌐 Enter Latitude", format="%.6f")
-    longitude = st.number_input("🌐 Enter Longitude", format="%.6f")
+<button onclick="getLocation()" style="padding: 10px; font-size: 16px;">📍 Get Current Location</button>
+<p id="location-status" style="color: green;"></p>
+"""
 
-# --- PHOTO CAPTURE ---
-st.subheader("📸 Capture Photo")
-img_file = st.camera_input("Take a clear selfie")
+html(location_js, height=200)
 
-# --- Preview and Confirm ---
+latitude = st.text_input("Latitude", key="lat_input", disabled=True)
+longitude = st.text_input("Longitude", key="lon_input", disabled=True)
+
+# --- CAPTURE PHOTO ---
+st.subheader("📸 Take a Clear Selfie")
+
+# Use file_uploader with camera capture support for mobile
+img_file = st.file_uploader("📷 Upload your selfie", type=["jpg", "jpeg", "png"])
+
 if img_file:
-    st.image(img_file, caption="📷 Preview of your photo", use_column_width=True)
-    
-    if st.button("🔁 Retake Photo"):
-        st.experimental_rerun()
+    st.image(img_file, caption="🖼️ Preview of your selfie", use_column_width=True)
 
-    if st.button("✅ Submit"):
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        st.success("✔️ Submission Successful!")
+# --- SUBMIT BUTTON ---
+if st.button("✅ Submit"):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lat = st.experimental_get_query_params().get("latitude", [None])[0]
+    lon = st.experimental_get_query_params().get("longitude", [None])[0]
 
-        # Display submitted data
-        st.markdown("### 📝 Submitted Details")
-        st.markdown(f"**Section:** {section}")
-        st.markdown(f"**Center Code:** `{center_code}`")
-        st.markdown(f"**Timestamp:** {timestamp}")
-        st.markdown(f"**Latitude:** {latitude if latitude else 'Not Available'}")
-        st.markdown(f"**Longitude:** {longitude if longitude else 'Not Available'}")
+    st.success("✔️ Submission Successful!")
 
-        st.image(img_file, caption="🖼️ Submitted Photo", use_column_width=True)
+    st.markdown("### 📝 Submitted Details")
+    st.markdown(f"**Section:** {section}")
+    st.markdown(f"**Center Code:** `{center_code}`")
+    st.markdown(f"**Timestamp:** {timestamp}")
+    st.markdown(f"**Latitude:** {latitude if latitude else 'Not Available'}")
+    st.markdown(f"**Longitude:** {longitude if longitude else 'Not Available'}")
+
+    if img_file:
+        st.image(img_file, caption="📷 Submitted Selfie", use_column_width=True)
 
 # --- Footer Note ---
 st.markdown("---")
